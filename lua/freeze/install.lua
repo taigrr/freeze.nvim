@@ -1,6 +1,6 @@
 local uv = vim.loop
 local DIR_SEP = package.config:sub(1, 1)
-local utils = require('utils')
+local utils = require('freeze.utils')
 local log = utils.log
 
 local url = {
