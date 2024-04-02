@@ -23,7 +23,7 @@ end
 local function onExit(stdout, stderr)
 	return vim.schedule_wrap(function(code, _)
 		if code == 0 then
-			vim.notify("Successfull frozen 🍦", vim.log.levels.INFO, { title = "Freeze" })
+			vim.notify("Successfully frozen 🍦", vim.log.levels.INFO, { title = "Freeze" })
 		else
 			vim.notify(output.stdout, vim.log.levels.ERROR, { title = "Freeze" })
 		end
