@@ -1,3 +1,6 @@
+-- Installer code for freeze.nvim is based on go.nvim
+-- taken from https://github.com/ray-x/go.nvim
+-- (MIT License)
 local uv = vim.loop
 local DIR_SEP = package.config:sub(1, 1)
 local utils = require('freeze.utils')

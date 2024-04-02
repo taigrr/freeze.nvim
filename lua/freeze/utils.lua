@@ -1,3 +1,7 @@
+-- Utility code for freeze.nvim is based on go.nvim
+-- taken from https://github.com/ray-x/go.nvim
+-- (MIT License)
+
 local util = {}
 local fn = vim.fn
 
