@@ -66,8 +66,6 @@ function freeze.setup()
     	create_cmd('FreezeUpdate', function(_)
       		install.update_all()
     	end)
-  end,
-}
 end
 
 return freeze
