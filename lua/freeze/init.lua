@@ -1,9 +1,8 @@
 local loop = vim.loop
 local freeze = {}
 local output = { stdout = "", stderr = "" }
-local utils = require('freeze.utils')
-local install = require('freeze.install')
-
+local utils = require("freeze.utils")
+local install = require("freeze.install")
 
 local function onReadStdOut(err, data)
 	if err then
@@ -53,19 +52,19 @@ function freeze.freeze(start_line, end_line)
 	loop.read_start(stderr, onReadStdErr)
 end
 local create_cmd = function(cmd, func, opt)
-  opt = vim.tbl_extend('force', { desc = 'freeze.nvim ' .. cmd }, opt or {})
-  vim.api.nvim_create_user_command(cmd, func, opt)
+	opt = vim.tbl_extend("force", { desc = "freeze.nvim " .. cmd }, opt or {})
+	vim.api.nvim_create_user_command(cmd, func, opt)
 end
 function freeze.setup()
 	vim.api.nvim_create_user_command("Freeze", function(opts)
 		freeze.freeze(opts.line1, opts.line2)
 	end, { range = "%" })
-	create_cmd('FreezeInstall', function(_)
-      		install.install_all()
-    	end)
-    	create_cmd('FreezeUpdate', function(_)
-      		install.update_all()
-    	end)
+	create_cmd("FreezeInstall", function(_)
+		install.install_all()
+	end)
+	create_cmd("FreezeUpdate", function(_)
+		install.update_all()
+	end)
 end
 
 return freeze
