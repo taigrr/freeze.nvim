@@ -5,8 +5,7 @@ Neovim!
 
 ## Requirements
 
-- [freeze](https://github.com/charmbracelet/freeze)
-- (Optional) [glaze.nvim](https://github.com/taigrr/glaze.nvim) — centralized Go binary manager. If installed, freeze.nvim auto-registers its binary with Glaze.
+- [freeze](https://github.com/charmbracelet/freeze) (installed automatically via [glaze.nvim](https://github.com/taigrr/glaze.nvim))
 
 ## Installation
 
@@ -15,6 +14,7 @@ Neovim!
 ```lua
 {
     "taigrr/freeze.nvim",
+    dependencies = { "taigrr/glaze.nvim" },
     config = true,
 }
 ```
