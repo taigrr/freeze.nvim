@@ -4,6 +4,14 @@ local output = { stdout = "", stderr = "" }
 local utils = require("freeze.utils")
 local install = require("freeze.install")
 
+-- Register with glaze.nvim if available
+local ok, glaze = pcall(require, "glaze")
+if ok then
+  glaze.register("freeze", "github.com/charmbracelet/freeze", {
+    plugin = "freeze.nvim",
+  })
+end
+
 local function onReadStdOut(err, data)
 	if err then
 		vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
