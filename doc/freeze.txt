@@ -1,0 +1,83 @@
+*freeze.txt*  🍦 Screenshot code with freeze from Neovim
+
+Author:   Tai Groot <tai@taigrr.com>
+License:  0BSD
+Homepage: https://github.com/taigrr/freeze.nvim
+
+==============================================================================
+CONTENTS                                                     *freeze-contents*
+
+  1. Introduction ........................... |freeze-introduction|
+  2. Requirements ........................... |freeze-requirements|
+  3. Setup .................................. |freeze-setup|
+  4. Commands ............................... |freeze-commands|
+  5. API .................................... |freeze-api|
+
+==============================================================================
+1. INTRODUCTION                                          *freeze-introduction*
+
+freeze.nvim is a Neovim plugin for creating beautiful code screenshots using
+charmbracelet/freeze (https://github.com/charmbracelet/freeze).
+
+Select lines in visual mode and run `:Freeze` to generate a PNG image in your
+current working directory.
+
+==============================================================================
+2. REQUIREMENTS                                          *freeze-requirements*
+
+- Neovim >= 0.9.0
+- freeze binary (auto-installed via glaze.nvim)
+- glaze.nvim (https://github.com/taigrr/glaze.nvim) for binary management
+
+==============================================================================
+3. SETUP                                                        *freeze-setup*
+
+Using lazy.nvim:
+>lua
+  {
+    "taigrr/freeze.nvim",
+    dependencies = { "taigrr/glaze.nvim" },
+    config = true,
+  }
+<
+
+Using packer.nvim:
+>lua
+  use {
+    "taigrr/freeze.nvim",
+    requires = { "taigrr/glaze.nvim" },
+    config = function()
+      require("freeze").setup()
+    end,
+  }
+<
+
+==============================================================================
+4. COMMANDS                                                  *freeze-commands*
+
+                                                                     *:Freeze*
+:[range]Freeze          Freeze the selected lines (or entire buffer if no
+                        range) to a PNG image. The image is saved to the
+                        current working directory as `freeze.png`.
+
+                        Example: Select lines in visual mode and run
+                        `:'<,'>Freeze`
+
+==============================================================================
+5. API                                                            *freeze-api*
+
+                                                            *freeze.setup()*
+freeze.setup({opts})
+    Initialize freeze.nvim with optional configuration.
+    Currently no configuration options are exposed.
+
+                                                           *freeze.freeze()*
+freeze.freeze({start_line}, {end_line})
+    Freeze the specified line range to an image.
+
+    Parameters: ~
+      {start_line}  Starting line number (1-indexed)
+      {end_line}    Ending line number (1-indexed)
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
