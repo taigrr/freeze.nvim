@@ -1,73 +1,68 @@
-# AGENTS.md - freeze.nvim
+# AGENTS.md
 
-## Overview
+AI agent guide for working in freeze.nvim.
 
-Neovim plugin that wraps [charmbracelet/freeze](https://github.com/charmbracelet/freeze) for creating code screenshots directly from Neovim. Uses [glaze.nvim](https://github.com/taigrr/glaze.nvim) for automatic binary management.
+## Project Overview
 
-## Project Structure
+**freeze.nvim** is a Neovim plugin for creating code screenshots using charmbracelet/freeze. It integrates with glaze.nvim for automatic binary management.
+
+- **Language**: Lua (Neovim plugin)
+- **Requirements**: Neovim >= 0.9, glaze.nvim
+- **Author**: Tai Groot (taigrr)
+
+## Directory Structure
 
 ```
 freeze.nvim/
-├── README.md
-└── lua/freeze/
-    ├── init.lua      # Main plugin entry point, setup, and core freeze command
-    ├── health.lua    # :checkhealth integration
-    └── install.lua   # Binary installation via `go install`
+├── lua/freeze/
+│   ├── init.lua      # Main module: setup, freeze command, glaze registration
+│   └── health.lua    # Health check: :checkhealth freeze
+├── doc/
+│   └── freeze.txt    # Vim help documentation
+├── .github/
+│   └── FUNDING.yml   # GitHub Sponsors config
+├── .editorconfig     # Editor formatting rules
+├── .gitattributes    # Git LFS tracking
+├── .gitignore        # Ignored files
+├── .luarc.json       # Lua LSP configuration
+├── LICENSE           # 0BSD license
+├── Makefile          # Demo recording commands
+└── README.md         # User documentation
 ```
 
-## Commands Provided
+## Commands
 
-| Command          | Description                                           |
-|------------------|-------------------------------------------------------|
-| `:Freeze`        | Freeze selected lines (visual range) to `freeze.png` |
-| `:FreezeInstall` | Install freeze binary via `go install`               |
-| `:FreezeUpdate`  | Update freeze binary to latest version               |
+| Command          | Description                                    |
+| ---------------- | ---------------------------------------------- |
+| `:[range]Freeze` | Freeze selected lines (or entire buffer) to PNG |
+| `:checkhealth freeze` | Run health check                          |
 
 ## Code Patterns
 
-### Module Structure
+### Module Pattern
 
-Each Lua file follows the standard Neovim plugin pattern:
+Uses standard Neovim plugin pattern with `M` table:
 
 ```lua
 local M = {}
--- functions
+function M.setup(opts) end
+function M.freeze(start_line, end_line) end
 return M
 ```
 
-Or a table literal return:
+### Type Annotations
 
-```lua
-return {
-  install = install,
-  update = update,
-  -- ...
-}
-```
+Uses LuaCATS (`---@param`, `---@return`, `---@class`) for type hints.
 
-### Neovim API Usage
+### Async Patterns
 
-- `vim.loop` (libuv) for async process spawning
-- `vim.fn.system()` and `vim.fn.jobstart()` for shell commands
-- `vim.api.nvim_create_user_command()` for command registration
-- `vim.notify()` for user notifications with log levels
-- `vim.health.*` for health check integration
-
-### Async Pattern
-
-The main freeze operation uses libuv pipes for non-blocking execution:
-
-```lua
-local stdout = loop.new_pipe(false)
-local stderr = loop.new_pipe(false)
-local handle = loop.spawn("freeze", { args = {...}, stdio = {...} }, onExit)
-loop.read_start(stdout, onReadStdOut)
-loop.read_start(stderr, onReadStdErr)
-```
+- `vim.loop` for libuv bindings
+- `vim.schedule_wrap()` for deferred main-loop execution
+- Pipe-based stdout/stderr capture
 
 ### glaze.nvim Integration
 
-Plugin registers with glaze.nvim for binary management:
+Plugin registers with glaze.nvim at load time (not in setup):
 
 ```lua
 local ok, glaze = pcall(require, "glaze")
@@ -80,46 +75,38 @@ end
 
 ## Testing
 
-No automated test suite. Manual testing:
+**No automated tests.** Manual testing workflow:
 
-1. Load plugin in Neovim
-2. Run `:checkhealth freeze` to verify setup
-3. Select lines and run `:'<,'>Freeze`
-4. Verify `freeze.png` created in cwd
-
-## Development Notes
-
-### Missing File
-
-`init.lua` imports `freeze.utils` but `utils.lua` does not exist in the repository. This is a bug - the file is either missing or the import is stale.
-
-### LSP Warnings
-
-lua_ls reports `undefined-global 'vim'` warnings throughout. This is expected for Neovim plugins since `vim` is injected at runtime. To suppress, add to workspace settings:
-
-```lua
--- .luarc.json
-{
-  "diagnostics": {
-    "globals": ["vim"]
-  }
-}
+```vim
+:luafile %              " Reload current file
+:checkhealth freeze     " Verify setup
+:'<,'>Freeze            " Test freeze command
 ```
 
-### Global Reference
+## Code Conventions
 
-`install.lua` references `_GO_NVIM_CFG` (line 112-113), a leftover from the go.nvim codebase this was adapted from. Not used in practice.
+- 2-space indentation (see .editorconfig)
+- LuaCATS type annotations
+- Private functions use `local function name()`
+- Public API via `M.function_name()`
+- Notifications via `vim.notify()` with log levels
 
-### Dependencies
+## Gotchas
 
-- **Runtime**: `freeze` binary (from charmbracelet/freeze)
-- **Optional**: `glaze.nvim` for automatic binary management
-- **Build**: Go toolchain (for `go install`)
+1. **vim global**: LSP warnings about undefined `vim` are expected for Neovim plugins. The `.luarc.json` configures this.
 
-## Style Conventions
+2. **glaze.nvim registration**: Happens at module load, not in `setup()`. This ensures the binary is registered even if `setup()` is called later.
 
-- Tabs for indentation
-- Local variables with descriptive names
-- Functions defined as `function module.name()` or `local function name()`
-- Notifications via `vim.notify()` with appropriate log levels
-- Error handling via `pcall()` for optional dependencies
+3. **Output reset**: `output` table is reset at the start of each `freeze()` call to avoid accumulating data from previous runs.
+
+## API Reference
+
+Main module (`require("freeze")`):
+
+- `setup(opts)` - Initialize plugin, create `:Freeze` command
+- `freeze(start_line, end_line)` - Freeze lines to image
+
+## Dependencies
+
+- **Required**: glaze.nvim (binary management)
+- **Runtime**: freeze binary (installed via glaze.nvim)

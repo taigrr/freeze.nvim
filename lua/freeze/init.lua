@@ -40,8 +40,8 @@ local function on_stderr(err, data)
   end
 end
 
----@param stdout uv_pipe_t
----@param stderr uv_pipe_t
+---@param stdout uv.uv_pipe_t
+---@param stderr uv.uv_pipe_t
 ---@return function
 local function on_exit(stdout, stderr)
   return vim.schedule_wrap(function(code, _)
