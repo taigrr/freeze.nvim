@@ -10,8 +10,9 @@ CONTENTS                                                     *freeze-contents*
   1. Introduction ........................... |freeze-introduction|
   2. Requirements ........................... |freeze-requirements|
   3. Setup .................................. |freeze-setup|
-  4. Commands ............................... |freeze-commands|
-  5. API .................................... |freeze-api|
+  4. Configuration .......................... |freeze-configuration|
+  5. Commands ............................... |freeze-commands|
+  6. API .................................... |freeze-api|
 
 ==============================================================================
 1. INTRODUCTION                                          *freeze-introduction*
@@ -19,13 +20,12 @@ CONTENTS                                                     *freeze-contents*
 freeze.nvim is a Neovim plugin for creating beautiful code screenshots using
 charmbracelet/freeze (https://github.com/charmbracelet/freeze).
 
-Select lines in visual mode and run `:Freeze` to generate a PNG image in your
-current working directory.
+Select lines in visual mode and run `:Freeze` to generate a PNG image.
 
 ==============================================================================
 2. REQUIREMENTS                                          *freeze-requirements*
 
-- Neovim >= 0.9.0
+- Neovim >= 0.9.0 (0.10+ recommended for vim.uv support)
 - freeze binary (auto-installed via glaze.nvim)
 - glaze.nvim (https://github.com/taigrr/glaze.nvim) for binary management
 
@@ -53,23 +53,60 @@ Using packer.nvim:
 <
 
 ==============================================================================
-4. COMMANDS                                                  *freeze-commands*
+4. CONFIGURATION                                      *freeze-configuration*
+
+Pass a table to `setup()` to customize behavior:
+>lua
+  require("freeze").setup({
+    output = "~/screenshots",  -- Output directory (default: cwd)
+    filename = "code.png",     -- Output filename (default: "freeze.png")
+    theme = "dracula",         -- Freeze theme (default: nil)
+    extra_args = {             -- Additional freeze CLI arguments
+      "--padding", "20",
+    },
+  })
+<
+
+                                                        *freeze-config-output*
+output ~
+    Directory where screenshots are saved. When nil, uses the current
+    working directory.
+    Type: `string|nil`, Default: `nil`
+
+                                                      *freeze-config-filename*
+filename ~
+    Name of the output file.
+    Type: `string`, Default: `"freeze.png"`
+
+                                                         *freeze-config-theme*
+theme ~
+    Freeze theme name. When nil, uses the freeze default.
+    Type: `string|nil`, Default: `nil`
+
+                                                    *freeze-config-extra_args*
+extra_args ~
+    Additional arguments passed directly to the freeze CLI.
+    Type: `string[]`, Default: `{}`
+
+==============================================================================
+5. COMMANDS                                                  *freeze-commands*
 
                                                                      *:Freeze*
 :[range]Freeze          Freeze the selected lines (or entire buffer if no
-                        range) to a PNG image. The image is saved to the
-                        current working directory as `freeze.png`.
+                        range) to a PNG image.
 
                         Example: Select lines in visual mode and run
                         `:'<,'>Freeze`
 
 ==============================================================================
-5. API                                                            *freeze-api*
+6. API                                                            *freeze-api*
 
                                                             *freeze.setup()*
 freeze.setup({opts})
     Initialize freeze.nvim with optional configuration.
-    Currently no configuration options are exposed.
+
+    Parameters: ~
+      {opts}  (FreezeConfig|nil) See |freeze-configuration|
 
                                                            *freeze.freeze()*
 freeze.freeze({start_line}, {end_line})

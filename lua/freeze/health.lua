@@ -9,8 +9,11 @@ function M.check()
   vim.health.start("freeze.nvim")
 
   -- Check Neovim version
-  if vim.fn.has("nvim-0.9") == 1 then
-    vim.health.ok("Neovim >= 0.9")
+  if vim.fn.has("nvim-0.10") == 1 then
+    vim.health.ok("Neovim >= 0.10 (using vim.uv)")
+  elseif vim.fn.has("nvim-0.9") == 1 then
+    vim.health.ok("Neovim >= 0.9 (using vim.loop compat shim)")
+    vim.health.info("Upgrade to Neovim 0.10+ recommended for vim.uv support")
   else
     vim.health.error("Neovim >= 0.9 required", { "Upgrade Neovim to 0.9 or later" })
   end

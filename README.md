@@ -50,7 +50,7 @@ use {
 
 ## ⚡ Requirements
 
-- Neovim >= **0.9.0**
+- Neovim >= **0.9.0** (0.10+ recommended)
 - [freeze](https://github.com/charmbracelet/freeze) binary (auto-installed via glaze.nvim)
 - [glaze.nvim](https://github.com/taigrr/glaze.nvim) for binary management
 
@@ -64,6 +64,35 @@ Or freeze the entire buffer:
 
 ```vim
 :Freeze
+```
+
+## ⚙️ Configuration
+
+```lua
+require("freeze").setup({
+  -- Output directory (default: current working directory)
+  output = nil,
+
+  -- Output filename (default: "freeze.png")
+  filename = "freeze.png",
+
+  -- Freeze theme (default: nil, uses freeze default)
+  theme = nil,
+
+  -- Additional arguments passed to freeze CLI
+  extra_args = {},
+})
+```
+
+### Example: Custom output and theme
+
+```lua
+require("freeze").setup({
+  output = vim.fn.expand("~/screenshots"),
+  filename = "code.png",
+  theme = "dracula",
+  extra_args = { "--padding", "20" },
+})
 ```
 
 ## 📖 Commands
