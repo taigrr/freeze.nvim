@@ -12,21 +12,18 @@ local uv = vim.uv or vim.loop
 ---@field output? string Output directory for screenshots (default: cwd)
 ---@field filename? string Output filename (default: "freeze.png")
 ---@field theme? string Freeze theme name
+---@field clipboard? boolean Copy image to system clipboard after freeze (default: false)
 ---@field extra_args? string[] Additional arguments passed to freeze CLI
 local defaults = {
   output = nil,
   filename = "freeze.png",
   theme = nil,
+  clipboard = false,
   extra_args = {},
 }
 
 ---@type FreezeConfig
 local config = vim.deepcopy(defaults)
-
----@class FreezeOutput
----@field stdout string
----@field stderr string
-local output = { stdout = "", stderr = "" }
 
 -- Register with glaze.nvim if available
 local ok, glaze = pcall(require, "glaze")
@@ -36,45 +33,6 @@ if ok then
   })
 end
 
----@param err string|nil
----@param data string|nil
-local function on_stdout(err, data)
-  if err then
-    vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
-  end
-  if data then
-    output.stdout = output.stdout .. data
-  end
-end
-
----@param err string|nil
----@param data string|nil
-local function on_stderr(err, data)
-  if err then
-    vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
-  end
-  if data then
-    output.stderr = output.stderr .. data
-  end
-end
-
----@param stdout uv_pipe_t
----@param stderr uv_pipe_t
----@return function
-local function on_exit(stdout, stderr)
-  return vim.schedule_wrap(function(code, _)
-    if code == 0 then
-      vim.notify("Successfully frozen 🍦", vim.log.levels.INFO, { title = "Freeze" })
-    else
-      vim.notify(output.stdout, vim.log.levels.ERROR, { title = "Freeze" })
-    end
-    stdout:read_stop()
-    stderr:read_stop()
-    stdout:close()
-    stderr:close()
-  end)
-end
-
 --- Build the output file path from config
 ---@return string
 local function get_output_path()
@@ -82,20 +40,100 @@ local function get_output_path()
   return dir .. "/" .. config.filename
 end
 
+--- Copy an image file to the system clipboard
+---@param filepath string Path to the image file
+local function copy_to_clipboard(filepath)
+  local cmd
+  if vim.fn.has("mac") == 1 then
+    cmd = {
+      "osascript",
+      "-e",
+      'set the clipboard to (read (POSIX file "' .. filepath .. '") as TIFF picture)',
+    }
+  elseif vim.fn.has("wsl") == 1 then
+    -- WSL: use clip.exe via PowerShell
+    cmd = { "powershell.exe", "-Command", "Set-Clipboard", "-Path", filepath }
+  elseif vim.fn.executable("xclip") == 1 then
+    cmd = { "xclip", "-selection", "clipboard", "-target", "image/png", "-i", filepath }
+  elseif vim.fn.executable("xsel") == 1 then
+    cmd = { "xsel", "--clipboard", "--input", "--type", "image/png", filepath }
+  elseif vim.fn.executable("wl-copy") == 1 then
+    cmd = { "wl-copy", "--type", "image/png" }
+  else
+    vim.notify(
+      "No clipboard tool found (xclip, xsel, or wl-copy)",
+      vim.log.levels.WARN,
+      { title = "Freeze" }
+    )
+    return
+  end
+
+  -- For wl-copy, we need to pipe the file content via stdin
+  if cmd[1] == "wl-copy" then
+    local f = io.open(filepath, "rb")
+    if not f then
+      vim.notify(
+        "Cannot read file for clipboard: " .. filepath,
+        vim.log.levels.ERROR,
+        { title = "Freeze" }
+      )
+      return
+    end
+    local data = f:read("*a")
+    f:close()
+
+    local stdin = uv.new_pipe(false)
+    local handle = uv.spawn(cmd[1], {
+      args = { cmd[2], cmd[3] },
+      stdio = { stdin, nil, nil },
+    }, function() end)
+    if handle then
+      stdin:write(data, function()
+        stdin:shutdown()
+        stdin:close()
+      end)
+    end
+    return
+  end
+
+  uv.spawn(cmd[1], {
+    args = vim.list_slice(cmd, 2),
+    stdio = { nil, nil, nil },
+  }, function(code)
+    vim.schedule(function()
+      if code == 0 then
+        vim.notify("Copied to clipboard", vim.log.levels.INFO, { title = "Freeze" })
+      else
+        vim.notify("Failed to copy to clipboard", vim.log.levels.WARN, { title = "Freeze" })
+      end
+    end)
+  end)
+end
+
 --- Freeze the specified line range to an image
 ---@param start_line number
 ---@param end_line number
 function M.freeze(start_line, end_line)
-  output = { stdout = "", stderr = "" }
-  local language = vim.api.nvim_get_option_value("filetype", { buf = 0 })
   local file = vim.api.nvim_buf_get_name(0)
-  local stdout = uv.new_pipe(false)
-  local stderr = uv.new_pipe(false)
+  if file == "" or vim.bo.modified then
+    vim.notify("Save the buffer before freezing", vim.log.levels.WARN, { title = "Freeze" })
+    return
+  end
+
+  local language = vim.api.nvim_get_option_value("filetype", { buf = 0 })
+  local out_path = get_output_path()
+
+  local stdout_pipe = uv.new_pipe(false)
+  local stderr_pipe = uv.new_pipe(false)
+  local collected = { stdout = "", stderr = "" }
 
   local args = {
-    "--language", language,
-    "--lines", start_line .. "," .. end_line,
-    "--output", get_output_path(),
+    "--language",
+    language,
+    "--lines",
+    start_line .. "," .. end_line,
+    "--output",
+    out_path,
   }
 
   if config.theme then
@@ -109,16 +147,66 @@ function M.freeze(start_line, end_line)
 
   table.insert(args, file)
 
-  local handle = uv.spawn("freeze", {
-    args = args,
-    stdio = { nil, stdout, stderr },
-  }, on_exit(stdout, stderr))
+  local handle = uv.spawn(
+    "freeze",
+    {
+      args = args,
+      stdio = { nil, stdout_pipe, stderr_pipe },
+    },
+    vim.schedule_wrap(function(code, _)
+      stdout_pipe:read_stop()
+      stderr_pipe:read_stop()
+      stdout_pipe:close()
+      stderr_pipe:close()
+
+      if code == 0 then
+        vim.notify("Frozen: " .. out_path .. " 🍦", vim.log.levels.INFO, { title = "Freeze" })
+        if config.clipboard then
+          copy_to_clipboard(out_path)
+        end
+      else
+        local msg = collected.stderr ~= "" and collected.stderr or collected.stdout
+        vim.notify(
+          "freeze failed (exit " .. code .. "): " .. msg,
+          vim.log.levels.ERROR,
+          { title = "Freeze" }
+        )
+      end
+    end)
+  )
+
   if not handle then
-    vim.notify("Failed to spawn freeze", vim.log.levels.ERROR, { title = "Freeze" })
+    vim.notify(
+      "Failed to spawn freeze — is it installed?",
+      vim.log.levels.ERROR,
+      { title = "Freeze" }
+    )
+    stdout_pipe:close()
+    stderr_pipe:close()
     return
   end
-  uv.read_start(stdout, on_stdout)
-  uv.read_start(stderr, on_stderr)
+
+  uv.read_start(stdout_pipe, function(err, data)
+    if err then
+      vim.schedule(function()
+        vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
+      end)
+    end
+    if data then
+      collected.stdout = collected.stdout .. data
+    end
+  end)
+
+  uv.read_start(stderr_pipe, function(err, data)
+    if err then
+      vim.schedule(function()
+        vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
+      end)
+    end
+    if data then
+      collected.stderr = collected.stderr .. data
+    end
+  end)
 end
 
 --- Setup freeze.nvim

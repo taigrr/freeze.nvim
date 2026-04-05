@@ -20,11 +20,15 @@ freeze.nvim/
 ├── doc/
 │   └── freeze.txt    # Vim help documentation
 ├── .github/
-│   └── FUNDING.yml   # GitHub Sponsors config
+│   ├── FUNDING.yml   # GitHub Sponsors config
+│   └── workflows/
+│       └── ci.yml    # CI: StyLua + luacheck
 ├── .editorconfig     # Editor formatting rules
 ├── .gitattributes    # Git LFS tracking
 ├── .gitignore        # Ignored files
+├── .luacheckrc       # Luacheck config
 ├── .luarc.json       # Lua LSP configuration
+├── .stylua.toml      # StyLua formatter config
 ├── LICENSE           # 0BSD license
 ├── Makefile          # Demo recording commands
 └── README.md         # User documentation
