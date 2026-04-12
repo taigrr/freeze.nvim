@@ -83,6 +83,13 @@ theme ~
     Freeze theme name. When nil, uses the freeze default.
     Type: `string|nil`, Default: `nil`
 
+                                                     *freeze-config-clipboard*
+clipboard ~
+    When true, copy the generated image to the system clipboard after
+    freezing. Supports xclip, xsel, wl-copy (Wayland), macOS pbcopy,
+    and WSL.
+    Type: `boolean`, Default: `false`
+
                                                     *freeze-config-extra_args*
 extra_args ~
     Additional arguments passed directly to the freeze CLI.

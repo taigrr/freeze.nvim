@@ -20,6 +20,7 @@
 ## ✨ Features
 
 - 📸 **Screenshot code** — Select lines and generate beautiful PNG images
+- 📋 **Clipboard support** — Optionally copy screenshots directly to the system clipboard
 - 🔌 **glaze.nvim integration** — Automatic binary management via [glaze.nvim](https://github.com/taigrr/glaze.nvim)
 - 🎨 **Syntax highlighting** — Automatically detects filetype for proper highlighting
 - ⚡ **Zero config** — Works out of the box
@@ -79,18 +80,23 @@ require("freeze").setup({
   -- Freeze theme (default: nil, uses freeze default)
   theme = nil,
 
+  -- Copy image to system clipboard after freeze (default: false)
+  -- Supports: xclip, xsel, wl-copy (Wayland), macOS, WSL
+  clipboard = false,
+
   -- Additional arguments passed to freeze CLI
   extra_args = {},
 })
 ```
 
-### Example: Custom output and theme
+### Example: Custom output, theme, and clipboard
 
 ```lua
 require("freeze").setup({
   output = vim.fn.expand("~/screenshots"),
   filename = "code.png",
   theme = "dracula",
+  clipboard = true,
   extra_args = { "--padding", "20" },
 })
 ```
