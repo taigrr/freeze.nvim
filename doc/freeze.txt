@@ -70,7 +70,7 @@ Pass a table to `setup()` to customize behavior:
                                                         *freeze-config-output*
 output ~
     Directory where screenshots are saved. When nil, uses the current
-    working directory.
+    working directory. Missing directories are created automatically.
     Type: `string|nil`, Default: `nil`
 
                                                       *freeze-config-filename*

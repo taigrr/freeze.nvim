@@ -23,3 +23,17 @@ jobs:
         uses: lunarmodules/luacheck@v1
         with:
           args: lua/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Run headless tests
+        run: make test
