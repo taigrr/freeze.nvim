@@ -40,6 +40,28 @@ local function get_output_path()
   return dir .. "/" .. config.filename
 end
 
+--- Ensure the output directory exists
+---@param filepath string Full output file path
+---@return boolean
+local function ensure_output_dir(filepath)
+  local dir = vim.fn.fnamemodify(filepath, ":h")
+  if vim.fn.isdirectory(dir) == 1 then
+    return true
+  end
+
+  local created, err = pcall(vim.fn.mkdir, dir, "p")
+  if created and vim.fn.isdirectory(dir) == 1 then
+    return true
+  end
+
+  vim.notify(
+    "Failed to create output directory: " .. dir .. (err and " (" .. tostring(err) .. ")" or ""),
+    vim.log.levels.ERROR,
+    { title = "Freeze" }
+  )
+  return false
+end
+
 --- Copy an image file to the system clipboard
 ---@param filepath string Path to the image file
 local function copy_to_clipboard(filepath)
@@ -122,6 +144,9 @@ function M.freeze(start_line, end_line)
 
   local language = vim.api.nvim_get_option_value("filetype", { buf = 0 })
   local out_path = get_output_path()
+  if not ensure_output_dir(out_path) then
+    return
+  end
 
   local stdout_pipe = uv.new_pipe(false)
   local stderr_pipe = uv.new_pipe(false)

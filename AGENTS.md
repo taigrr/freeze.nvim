@@ -30,8 +30,10 @@ freeze.nvim/
 ├── .luarc.json       # Lua LSP configuration
 ├── .stylua.toml      # StyLua formatter config
 ├── LICENSE           # 0BSD license
-├── Makefile          # Demo recording commands
-└── README.md         # User documentation
+├── Makefile          # Format, lint, test, and demo commands
+├── README.md         # User documentation
+└── tests/
+    └── run.lua       # Headless Neovim test suite
 ```
 
 ## Commands
@@ -79,7 +81,13 @@ end
 
 ## Testing
 
-**No automated tests.** Manual testing workflow:
+Automated headless tests cover output-directory creation behavior.
+
+```bash
+make test
+```
+
+Manual testing workflow:
 
 ```vim
 :luafile %              " Reload current file
@@ -114,3 +122,11 @@ Main module (`require("freeze")`):
 
 - **Required**: glaze.nvim (binary management)
 - **Runtime**: freeze binary (installed via glaze.nvim)
+
+## Local Development
+
+```bash
+make format
+make lint
+make test
+```

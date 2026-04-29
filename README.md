@@ -72,6 +72,7 @@ Or freeze the entire buffer:
 ```lua
 require("freeze").setup({
   -- Output directory (default: current working directory)
+  -- Missing directories are created automatically
   output = nil,
 
   -- Output filename (default: "freeze.png")
