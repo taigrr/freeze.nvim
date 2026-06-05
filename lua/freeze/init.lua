@@ -238,6 +238,8 @@ end
 ---@param opts FreezeConfig|nil Optional configuration
 function M.setup(opts)
   config = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+
+  pcall(vim.api.nvim_del_user_command, "Freeze")
   vim.api.nvim_create_user_command("Freeze", function(cmd_opts)
     M.freeze(cmd_opts.line1, cmd_opts.line2)
   end, { range = "%", desc = "Freeze selected lines to an image" })

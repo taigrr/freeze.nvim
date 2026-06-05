@@ -163,6 +163,15 @@ test("freeze aborts when output directory creation fails", function()
   vim.notify = original_notify
 end)
 
+test("setup can be called multiple times", function()
+  local freeze = reset_module()
+
+  freeze.setup({ filename = "first.png" })
+  local ok, err = pcall(freeze.setup, { filename = "second.png" })
+
+  assert_truthy(ok, "setup should be idempotent: " .. tostring(err))
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then
