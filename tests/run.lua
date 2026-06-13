@@ -172,6 +172,62 @@ test("setup can be called multiple times", function()
   assert_truthy(ok, "setup should be idempotent: " .. tostring(err))
 end)
 
+test("repeated setup refreshes command behavior and config", function()
+  local tmp = vim.fn.tempname()
+  local first_dir = tmp .. "/first"
+  local second_dir = tmp .. "/second"
+  local first_file = first_dir .. "/first.png"
+  local second_file = second_dir .. "/second.png"
+  local original_uv = vim.uv
+  local original_notify = vim.notify
+  local notifications = {}
+  local spawn_calls = {}
+
+  vim.notify = function(msg, level, opts)
+    table.insert(notifications, { msg = msg, level = level, opts = opts })
+  end
+  vim.uv = {
+    new_pipe = function()
+      return stub_pipe()
+    end,
+    spawn = function(cmd, opts, cb)
+      table.insert(spawn_calls, { cmd = cmd, opts = opts })
+      cb(0, 0)
+      return {}
+    end,
+    read_start = function(_, cb)
+      cb(nil, nil)
+    end,
+  }
+
+  local freeze = reset_module()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, tmp .. "/source.lua")
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "print('hi')" })
+  vim.bo[buf].modified = false
+  vim.bo[buf].filetype = "lua"
+
+  freeze.setup({ output = first_dir, filename = "first.png" })
+  freeze.setup({ output = second_dir, filename = "second.png" })
+  vim.cmd("Freeze")
+  vim.wait(50)
+
+  assert_eq(#spawn_calls, 1, "Freeze command should run once")
+  assert_truthy(
+    vim.tbl_contains(spawn_calls[1].opts.args, second_file),
+    "Freeze command should use refreshed config"
+  )
+  assert_truthy(
+    not vim.tbl_contains(spawn_calls[1].opts.args, first_file),
+    "Freeze command should not keep stale config"
+  )
+  assert_eq(#notifications, 1, "should notify once on success")
+
+  vim.uv = original_uv
+  vim.notify = original_notify
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then
