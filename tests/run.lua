@@ -59,6 +59,7 @@ test("freeze creates missing output directory before spawning freeze", function(
   local original_executable = vim.fn.executable
   local notifications = {}
   local spawn_calls = {}
+  local closed_handles = 0
 
   vim.notify = function(msg, level, opts)
     table.insert(notifications, { msg = msg, level = level, opts = opts })
@@ -76,7 +77,11 @@ test("freeze creates missing output directory before spawning freeze", function(
     spawn = function(cmd, opts, cb)
       table.insert(spawn_calls, { cmd = cmd, opts = opts })
       cb(0, 0)
-      return {}
+      return {
+        close = function()
+          closed_handles = closed_handles + 1
+        end,
+      }
     end,
     read_start = function(_, cb)
       cb(nil, nil)
@@ -97,6 +102,7 @@ test("freeze creates missing output directory before spawning freeze", function(
 
   assert_eq(vim.fn.isdirectory(target_dir), 1, "output directory should exist")
   assert_eq(#spawn_calls, 1, "freeze should spawn once")
+  assert_eq(closed_handles, 1, "freeze process handle should close")
   assert_eq(spawn_calls[1].cmd, "freeze")
   assert_truthy(
     vim.tbl_contains(spawn_calls[1].opts.args, target_file),

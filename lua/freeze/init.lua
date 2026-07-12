@@ -25,6 +25,14 @@ local defaults = {
 ---@type FreezeConfig
 local config = vim.deepcopy(defaults)
 
+--- Close a libuv handle when the current runtime supports it
+---@param handle any
+local function close_handle(handle)
+  if handle and handle.close then
+    handle:close()
+  end
+end
+
 -- Register with glaze.nvim if available
 local ok, glaze = pcall(require, "glaze")
 if ok then
@@ -105,24 +113,33 @@ local function copy_to_clipboard(filepath)
     f:close()
 
     local stdin = uv.new_pipe(false)
-    local handle = uv.spawn(cmd[1], {
+    local handle
+    handle = uv.spawn(cmd[1], {
       args = { cmd[2], cmd[3] },
       stdio = { stdin, nil, nil },
-    }, function() end)
+    }, function()
+      vim.schedule(function()
+        close_handle(handle)
+      end)
+    end)
     if handle then
       stdin:write(data, function()
         stdin:shutdown()
         stdin:close()
       end)
+    else
+      stdin:close()
     end
     return
   end
 
-  uv.spawn(cmd[1], {
+  local handle
+  handle = uv.spawn(cmd[1], {
     args = vim.list_slice(cmd, 2),
     stdio = { nil, nil, nil },
   }, function(code)
     vim.schedule(function()
+      close_handle(handle)
       if code == 0 then
         vim.notify("Copied to clipboard", vim.log.levels.INFO, { title = "Freeze" })
       else
@@ -172,13 +189,15 @@ function M.freeze(start_line, end_line)
 
   table.insert(args, file)
 
-  local handle = uv.spawn(
+  local handle
+  handle = uv.spawn(
     "freeze",
     {
       args = args,
       stdio = { nil, stdout_pipe, stderr_pipe },
     },
     vim.schedule_wrap(function(code, _)
+      close_handle(handle)
       stdout_pipe:read_stop()
       stderr_pipe:read_stop()
       stdout_pipe:close()
