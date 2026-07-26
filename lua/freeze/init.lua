@@ -48,7 +48,8 @@ end
 --- Build the output file path from config
 ---@return string
 local function get_output_path()
-  local dir = config.output or vim.fn.getcwd()
+  local dir = config.output and vim.fn.expand(config.output) or vim.fn.getcwd()
+  dir = dir:gsub("/+$", "")
   return dir .. "/" .. config.filename
 end
 
@@ -79,23 +80,32 @@ end
 local function copy_to_clipboard(filepath)
   local cmd
   if vim.fn.has("mac") == 1 then
+    -- Escape embedded quotes/backslashes for the AppleScript string literal
+    local escaped = filepath:gsub("\\", "\\\\"):gsub('"', '\\"')
     cmd = {
       "osascript",
       "-e",
-      'set the clipboard to (read (POSIX file "' .. filepath .. '") as TIFF picture)',
+      'set the clipboard to (read (POSIX file "' .. escaped .. '") as «class PNGf»)',
     }
   elseif vim.fn.has("wsl") == 1 then
-    -- WSL: use clip.exe via PowerShell
-    cmd = { "powershell.exe", "-Command", "Set-Clipboard", "-Path", filepath }
+    -- WSL: convert to a Windows path and copy image bytes via .NET
+    local win_path = vim.trim(vim.fn.system({ "wslpath", "-w", filepath }))
+    if vim.v.shell_error ~= 0 or win_path == "" then
+      win_path = filepath
+    end
+    local ps = table.concat({
+      "Add-Type -AssemblyName System.Windows.Forms,System.Drawing;",
+      "[System.Windows.Forms.Clipboard]::SetImage(",
+      "[System.Drawing.Image]::FromFile('" .. win_path:gsub("'", "''") .. "'))",
+    }, " ")
+    cmd = { "powershell.exe", "-NoProfile", "-Command", ps }
   elseif vim.fn.executable("xclip") == 1 then
     cmd = { "xclip", "-selection", "clipboard", "-target", "image/png", "-i", filepath }
-  elseif vim.fn.executable("xsel") == 1 then
-    cmd = { "xsel", "--clipboard", "--input", "--type", "image/png", filepath }
   elseif vim.fn.executable("wl-copy") == 1 then
     cmd = { "wl-copy", "--type", "image/png" }
   else
     vim.notify(
-      "No clipboard tool found (xclip, xsel, or wl-copy)",
+      "No clipboard tool found (xclip or wl-copy)",
       vim.log.levels.WARN,
       { title = "Freeze" }
     )
@@ -133,6 +143,9 @@ local function copy_to_clipboard(filepath)
       end)
     else
       stdin:close()
+      vim.schedule(function()
+        vim.notify("Failed to spawn wl-copy", vim.log.levels.WARN, { title = "Freeze" })
+      end)
     end
     return
   end
@@ -151,6 +164,13 @@ local function copy_to_clipboard(filepath)
       end
     end)
   end)
+  if not handle then
+    vim.notify(
+      "Failed to spawn clipboard command: " .. cmd[1],
+      vim.log.levels.WARN,
+      { title = "Freeze" }
+    )
+  end
 end
 
 --- Freeze the specified line range to an image

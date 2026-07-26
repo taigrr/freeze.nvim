@@ -70,7 +70,8 @@ Pass a table to `setup()` to customize behavior:
                                                         *freeze-config-output*
 output ~
     Directory where screenshots are saved. When nil, uses the current
-    working directory. Missing directories are created automatically.
+    working directory. `~` and environment variables are expanded, and
+    missing directories are created automatically.
     Type: `string|nil`, Default: `nil`
 
                                                       *freeze-config-filename*
@@ -86,8 +87,8 @@ theme ~
                                                      *freeze-config-clipboard*
 clipboard ~
     When true, copy the generated image to the system clipboard after
-    freezing. Supports xclip, xsel, wl-copy (Wayland), macOS pbcopy,
-    and WSL.
+    freezing. Supports xclip and wl-copy (Wayland) on Linux, osascript
+    on macOS, and PowerShell on WSL.
     Type: `boolean`, Default: `false`
 
                                                     *freeze-config-extra_args*

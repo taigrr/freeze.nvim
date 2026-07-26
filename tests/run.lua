@@ -309,6 +309,73 @@ test("clipboard closes wl-copy stdin pipe when spawn fails", function()
   vim.fn.has = original_has
 end)
 
+test("clipboard uses osascript PNG coercion on macOS", function()
+  local tmp = vim.fn.tempname()
+  vim.fn.mkdir(tmp, "p")
+  local out_file = tmp .. "/shot.png"
+  vim.fn.writefile({ "fake png bytes" }, out_file)
+
+  local original_uv = vim.uv
+  local original_notify = vim.notify
+  local original_has = vim.fn.has
+  local spawn_calls = {}
+  local closed_handles = 0
+
+  vim.notify = function() end
+  vim.fn.has = function(feature)
+    if feature == "mac" then
+      return 1
+    end
+    if feature == "wsl" then
+      return 0
+    end
+    return original_has(feature)
+  end
+  vim.uv = {
+    new_pipe = function()
+      return stub_pipe()
+    end,
+    spawn = function(cmd, opts, cb)
+      table.insert(spawn_calls, { cmd = cmd, opts = opts })
+      cb(0, 0)
+      return {
+        close = function()
+          closed_handles = closed_handles + 1
+        end,
+      }
+    end,
+    read_start = function(_, cb)
+      cb(nil, nil)
+    end,
+  }
+
+  local freeze = reset_module()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, tmp .. "/source.lua")
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "print('hi')" })
+  vim.bo[buf].modified = false
+  vim.bo[buf].filetype = "lua"
+
+  freeze.setup({ output = tmp, filename = "shot.png", clipboard = true })
+  freeze.freeze(1, 1)
+  vim.wait(50)
+
+  assert_eq(#spawn_calls, 2, "freeze then clipboard should spawn")
+  assert_eq(spawn_calls[2].cmd, "osascript", "macOS clipboard should use osascript")
+  assert_truthy(
+    vim.tbl_contains(spawn_calls[2].opts.args, "-e"),
+    "osascript should receive an -e script"
+  )
+  local script = spawn_calls[2].opts.args[2]
+  assert_truthy(script:find("PNGf", 1, true), "clipboard should coerce as PNG, not TIFF")
+  assert_eq(closed_handles, 2, "both process handles should close")
+
+  vim.uv = original_uv
+  vim.notify = original_notify
+  vim.fn.has = original_has
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then
