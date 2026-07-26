@@ -28,9 +28,13 @@ local config = vim.deepcopy(defaults)
 --- Close a libuv handle when the current runtime supports it
 ---@param handle any
 local function close_handle(handle)
-  if handle and handle.close then
-    handle:close()
+  if not (handle and handle.close) then
+    return
   end
+  if handle.is_closing and handle:is_closing() then
+    return
+  end
+  handle:close()
 end
 
 -- Register with glaze.nvim if available

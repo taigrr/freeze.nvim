@@ -234,6 +234,81 @@ test("repeated setup refreshes command behavior and config", function()
   vim.notify = original_notify
 end)
 
+test("clipboard closes wl-copy stdin pipe when spawn fails", function()
+  local tmp = vim.fn.tempname()
+  vim.fn.mkdir(tmp, "p")
+  local out_file = tmp .. "/shot.png"
+  vim.fn.writefile({ "fake png bytes" }, out_file)
+
+  local original_uv = vim.uv
+  local original_notify = vim.notify
+  local original_executable = vim.fn.executable
+  local original_has = vim.fn.has
+  local spawn_calls = {}
+  local wl_stdin
+
+  vim.notify = function() end
+  vim.fn.has = function(feature)
+    if feature == "mac" or feature == "wsl" then
+      return 0
+    end
+    return original_has(feature)
+  end
+  vim.fn.executable = function(bin)
+    if bin == "freeze" or bin == "wl-copy" then
+      return 1
+    end
+    if bin == "xclip" or bin == "xsel" then
+      return 0
+    end
+    return original_executable(bin)
+  end
+  vim.uv = {
+    new_pipe = function()
+      local pipe = stub_pipe()
+      pipe.closed = 0
+      pipe.close = function()
+        pipe.closed = pipe.closed + 1
+      end
+      return pipe
+    end,
+    spawn = function(cmd, opts, cb)
+      table.insert(spawn_calls, { cmd = cmd, opts = opts })
+      if cmd == "wl-copy" then
+        wl_stdin = opts.stdio[1]
+        return nil
+      end
+      cb(0, 0)
+      return {
+        close = function() end,
+      }
+    end,
+    read_start = function(_, cb)
+      cb(nil, nil)
+    end,
+  }
+
+  local freeze = reset_module()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, tmp .. "/source.lua")
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "print('hi')" })
+  vim.bo[buf].modified = false
+  vim.bo[buf].filetype = "lua"
+
+  freeze.setup({ output = tmp, filename = "shot.png", clipboard = true })
+  freeze.freeze(1, 1)
+  vim.wait(50)
+
+  assert_truthy(wl_stdin, "wl-copy should have been spawned")
+  assert_eq(wl_stdin.closed, 1, "wl-copy stdin pipe should close once on spawn failure")
+
+  vim.uv = original_uv
+  vim.notify = original_notify
+  vim.fn.executable = original_executable
+  vim.fn.has = original_has
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then
