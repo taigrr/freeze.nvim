@@ -161,7 +161,7 @@ test("freeze aborts when output directory creation fails", function()
   assert_eq(#spawn_calls, 0, "freeze should not spawn when mkdir fails")
   assert_eq(#notifications, 1, "should notify about mkdir failure")
   assert_truthy(
-    notifications[1].msg:match(target_file:match("(.+)/[^/]+$")),
+    notifications[1].msg:find(target_file:match("(.+)/[^/]+$"), 1, true),
     "error should mention directory"
   )
 

@@ -48,8 +48,13 @@ end
 --- Build the output file path from config
 ---@return string
 local function get_output_path()
-  local dir = config.output and vim.fn.expand(config.output) or vim.fn.getcwd()
-  dir = dir:gsub("/+$", "")
+  local out = config.output
+  if out == nil or out == "" then
+    out = vim.fn.getcwd()
+  else
+    out = vim.fn.expand(out)
+  end
+  local dir = vim.fn.fnamemodify(out, ":p"):gsub("/+$", "")
   return dir .. "/" .. config.filename
 end
 
@@ -131,15 +136,21 @@ local function copy_to_clipboard(filepath)
     handle = uv.spawn(cmd[1], {
       args = { cmd[2], cmd[3] },
       stdio = { stdin, nil, nil },
-    }, function()
+    }, function(code)
       vim.schedule(function()
         close_handle(handle)
+        if code == 0 then
+          vim.notify("Copied to clipboard", vim.log.levels.INFO, { title = "Freeze" })
+        else
+          vim.notify("Failed to copy to clipboard", vim.log.levels.WARN, { title = "Freeze" })
+        end
       end)
     end)
     if handle then
       stdin:write(data, function()
-        stdin:shutdown()
-        stdin:close()
+        stdin:shutdown(function()
+          stdin:close()
+        end)
       end)
     else
       stdin:close()
@@ -192,6 +203,8 @@ function M.freeze(start_line, end_line)
   local stdout_pipe = uv.new_pipe(false)
   local stderr_pipe = uv.new_pipe(false)
   local collected = { stdout = "", stderr = "" }
+  local state =
+    { exited = false, code = nil, stdout_done = false, stderr_done = false, done = false }
 
   local args = {
     "--language",
@@ -214,6 +227,36 @@ function M.freeze(start_line, end_line)
   table.insert(args, file)
 
   local handle
+
+  -- Notify only once the process has exited AND both pipes have reached EOF,
+  -- so collected stderr/stdout is complete before we build the message.
+  local function finalize()
+    if state.done then
+      return
+    end
+    if not (state.exited and state.stdout_done and state.stderr_done) then
+      return
+    end
+    state.done = true
+    close_handle(handle)
+    close_handle(stdout_pipe)
+    close_handle(stderr_pipe)
+
+    if state.code == 0 then
+      vim.notify("Frozen: " .. out_path .. " 🍦", vim.log.levels.INFO, { title = "Freeze" })
+      if config.clipboard then
+        copy_to_clipboard(out_path)
+      end
+    else
+      local msg = collected.stderr ~= "" and collected.stderr or collected.stdout
+      vim.notify(
+        "freeze failed (exit " .. state.code .. "): " .. msg,
+        vim.log.levels.ERROR,
+        { title = "Freeze" }
+      )
+    end
+  end
+
   handle = uv.spawn(
     "freeze",
     {
@@ -221,25 +264,9 @@ function M.freeze(start_line, end_line)
       stdio = { nil, stdout_pipe, stderr_pipe },
     },
     vim.schedule_wrap(function(code, _)
-      close_handle(handle)
-      stdout_pipe:read_stop()
-      stderr_pipe:read_stop()
-      stdout_pipe:close()
-      stderr_pipe:close()
-
-      if code == 0 then
-        vim.notify("Frozen: " .. out_path .. " 🍦", vim.log.levels.INFO, { title = "Freeze" })
-        if config.clipboard then
-          copy_to_clipboard(out_path)
-        end
-      else
-        local msg = collected.stderr ~= "" and collected.stderr or collected.stdout
-        vim.notify(
-          "freeze failed (exit " .. code .. "): " .. msg,
-          vim.log.levels.ERROR,
-          { title = "Freeze" }
-        )
-      end
+      state.exited = true
+      state.code = code
+      finalize()
     end)
   )
 
@@ -249,32 +276,30 @@ function M.freeze(start_line, end_line)
       vim.log.levels.ERROR,
       { title = "Freeze" }
     )
-    stdout_pipe:close()
-    stderr_pipe:close()
+    close_handle(stdout_pipe)
+    close_handle(stderr_pipe)
     return
   end
 
-  uv.read_start(stdout_pipe, function(err, data)
-    if err then
-      vim.schedule(function()
-        vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
-      end)
+  local function on_read(pipe, key)
+    return function(err, data)
+      if err then
+        vim.schedule(function()
+          vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
+        end)
+      end
+      if data then
+        collected[key] = collected[key] .. data
+      else
+        pipe:read_stop()
+        state[key .. "_done"] = true
+        vim.schedule(finalize)
+      end
     end
-    if data then
-      collected.stdout = collected.stdout .. data
-    end
-  end)
+  end
 
-  uv.read_start(stderr_pipe, function(err, data)
-    if err then
-      vim.schedule(function()
-        vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
-      end)
-    end
-    if data then
-      collected.stderr = collected.stderr .. data
-    end
-  end)
+  uv.read_start(stdout_pipe, on_read(stdout_pipe, "stdout"))
+  uv.read_start(stderr_pipe, on_read(stderr_pipe, "stderr"))
 end
 
 --- Setup freeze.nvim
