@@ -52,7 +52,14 @@ local function get_output_path()
   if out == nil or out == "" then
     out = vim.fn.getcwd()
   else
-    out = vim.fn.expand(out)
+    -- Expand a leading ~ and env vars only (no %, backtick, or glob expansion)
+    out = out:gsub("^~", vim.env.HOME or "~")
+    out = out:gsub("%${([%w_]+)}", function(v)
+      return vim.env[v] or ("${" .. v .. "}")
+    end)
+    out = out:gsub("%$([%w_]+)", function(v)
+      return vim.env[v] or ("$" .. v)
+    end)
   end
   local dir = vim.fn.fnamemodify(out, ":p"):gsub("/+$", "")
   return dir .. "/" .. config.filename

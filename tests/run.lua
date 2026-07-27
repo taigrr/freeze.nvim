@@ -376,6 +376,76 @@ test("clipboard uses osascript PNG coercion on macOS", function()
   vim.fn.has = original_has
 end)
 
+test("freeze reports stderr even when exit fires before pipe drain", function()
+  local tmp = vim.fn.tempname()
+  vim.fn.mkdir(tmp, "p")
+
+  local original_uv = vim.uv
+  local original_notify = vim.notify
+  local original_executable = vim.fn.executable
+  local notifications = {}
+  local read_callbacks = {}
+  local closed_handles = 0
+
+  vim.notify = function(msg, level, opts)
+    table.insert(notifications, { msg = msg, level = level, opts = opts })
+  end
+  vim.fn.executable = function(bin)
+    if bin == "freeze" then
+      return 1
+    end
+    return original_executable(bin)
+  end
+  vim.uv = {
+    new_pipe = function()
+      return stub_pipe()
+    end,
+    spawn = function(_, _, cb)
+      -- Exit BEFORE any pipe data/EOF is delivered (the race being guarded).
+      cb(1, 0)
+      return {
+        close = function()
+          closed_handles = closed_handles + 1
+        end,
+      }
+    end,
+    read_start = function(pipe, cb)
+      table.insert(read_callbacks, { pipe = pipe, cb = cb })
+    end,
+  }
+
+  local freeze = reset_module()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, tmp .. "/source.lua")
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "print('hi')" })
+  vim.bo[buf].modified = false
+  vim.bo[buf].filetype = "lua"
+
+  freeze.setup({ output = tmp, filename = "shot.png" })
+  freeze.freeze(1, 1)
+  vim.wait(20)
+
+  -- Deliver stderr and EOF only after the exit callback already ran.
+  assert_eq(#read_callbacks, 2, "both pipes should have read_start registered")
+  read_callbacks[1].cb(nil, "") -- stdout EOF
+  read_callbacks[2].cb(nil, "boom: bad flag\n") -- stderr data
+  read_callbacks[2].cb(nil, nil) -- stderr EOF
+  read_callbacks[1].cb(nil, nil) -- stdout EOF (defensive)
+  vim.wait(50)
+
+  assert_eq(#notifications, 1, "should notify exactly once on failure")
+  assert_truthy(
+    notifications[1].msg:find("boom: bad flag", 1, true),
+    "failure message should include collected stderr"
+  )
+  assert_eq(closed_handles, 1, "process handle should close once")
+
+  vim.uv = original_uv
+  vim.notify = original_notify
+  vim.fn.executable = original_executable
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then
