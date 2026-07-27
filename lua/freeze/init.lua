@@ -220,13 +220,17 @@ function M.freeze(start_line, end_line)
     { exited = false, code = nil, stdout_done = false, stderr_done = false, done = false }
 
   local args = {
-    "--language",
-    language,
     "--lines",
     start_line .. "," .. end_line,
     "--output",
     out_path,
   }
+
+  -- Only pass --language when known; otherwise let freeze detect from the file.
+  if language ~= "" then
+    table.insert(args, "--language")
+    table.insert(args, language)
+  end
 
   if config.theme then
     table.insert(args, "--theme")
@@ -255,7 +259,7 @@ function M.freeze(start_line, end_line)
     close_handle(stdout_pipe)
     close_handle(stderr_pipe)
 
-    if state.code == 0 then
+    if state.code == 0 and not state.read_error then
       vim.notify("Frozen: " .. out_path .. " 🍦", vim.log.levels.INFO, { title = "Freeze" })
       if config.clipboard then
         copy_to_clipboard(out_path)
@@ -297,6 +301,7 @@ function M.freeze(start_line, end_line)
   local function on_read(pipe, key)
     return function(err, data)
       if err then
+        state.read_error = true
         vim.schedule(function()
           vim.notify(err, vim.log.levels.ERROR, { title = "Freeze" })
         end)
