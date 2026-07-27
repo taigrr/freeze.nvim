@@ -53,7 +53,9 @@ local function get_output_path()
     out = vim.fn.getcwd()
   else
     -- Expand a leading ~ and env vars only (no %, backtick, or glob expansion)
-    out = out:gsub("^~", vim.env.HOME or "~")
+    out = out:gsub("^~", function()
+      return vim.env.HOME or "~"
+    end)
     out = out:gsub("%${([%w_]+)}", function(v)
       return vim.env[v] or ("${" .. v .. "}")
     end)
@@ -91,6 +93,8 @@ end
 ---@param filepath string Path to the image file
 local function copy_to_clipboard(filepath)
   local cmd
+  local wayland = (vim.env.WAYLAND_DISPLAY or "") ~= ""
+    or (vim.env.XDG_SESSION_TYPE or "") == "wayland"
   if vim.fn.has("mac") == 1 then
     -- Escape embedded quotes/backslashes for the AppleScript string literal
     local escaped = filepath:gsub("\\", "\\\\"):gsub('"', '\\"')
@@ -111,6 +115,8 @@ local function copy_to_clipboard(filepath)
       "[System.Drawing.Image]::FromFile('" .. win_path:gsub("'", "''") .. "'))",
     }, " ")
     cmd = { "powershell.exe", "-NoProfile", "-Command", ps }
+  elseif wayland and vim.fn.executable("wl-copy") == 1 then
+    cmd = { "wl-copy", "--type", "image/png" }
   elseif vim.fn.executable("xclip") == 1 then
     cmd = { "xclip", "-selection", "clipboard", "-target", "image/png", "-i", filepath }
   elseif vim.fn.executable("wl-copy") == 1 then

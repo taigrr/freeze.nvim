@@ -106,6 +106,11 @@ extra_args ~
                         Example: Select lines in visual mode and run
                         `:'<,'>Freeze`
 
+                        Note: freeze reads the file from disk, so the buffer
+                        must be named and saved. Unnamed or modified buffers
+                        are refused with a "Save the buffer before freezing"
+                        message.
+
 ==============================================================================
 6. API                                                            *freeze-api*
 
