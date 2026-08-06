@@ -119,19 +119,21 @@ local function copy_to_clipboard(filepath)
     cmd = { "wl-copy", "--type", "image/png" }
   elseif vim.fn.executable("xclip") == 1 then
     cmd = { "xclip", "-selection", "clipboard", "-target", "image/png", "-i", filepath }
+  elseif vim.fn.executable("xsel") == 1 then
+    cmd = { "xsel", "--clipboard", "--input", "--mime-type", "image/png" }
   elseif vim.fn.executable("wl-copy") == 1 then
     cmd = { "wl-copy", "--type", "image/png" }
   else
     vim.notify(
-      "No clipboard tool found (xclip or wl-copy)",
+      "No clipboard tool found (xclip, xsel, or wl-copy)",
       vim.log.levels.WARN,
       { title = "Freeze" }
     )
     return
   end
 
-  -- For wl-copy, we need to pipe the file content via stdin
-  if cmd[1] == "wl-copy" then
+  -- wl-copy and xsel both read image data from stdin.
+  if cmd[1] == "wl-copy" or cmd[1] == "xsel" then
     local f = io.open(filepath, "rb")
     if not f then
       vim.notify(
@@ -147,7 +149,7 @@ local function copy_to_clipboard(filepath)
     local stdin = uv.new_pipe(false)
     local handle
     handle = uv.spawn(cmd[1], {
-      args = { cmd[2], cmd[3] },
+      args = vim.list_slice(cmd, 2),
       stdio = { stdin, nil, nil },
     }, function(code)
       vim.schedule(function()
@@ -168,7 +170,7 @@ local function copy_to_clipboard(filepath)
     else
       stdin:close()
       vim.schedule(function()
-        vim.notify("Failed to spawn wl-copy", vim.log.levels.WARN, { title = "Freeze" })
+        vim.notify("Failed to spawn " .. cmd[1], vim.log.levels.WARN, { title = "Freeze" })
       end)
     end
     return

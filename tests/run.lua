@@ -376,6 +376,94 @@ test("clipboard uses osascript PNG coercion on macOS", function()
   vim.fn.has = original_has
 end)
 
+test("clipboard falls back to xsel when xclip and wl-copy are unavailable", function()
+  local tmp = vim.fn.tempname()
+  vim.fn.mkdir(tmp, "p")
+  local out_file = tmp .. "/shot.png"
+  vim.fn.writefile({ "fake png bytes" }, out_file)
+
+  local original_uv = vim.uv
+  local original_notify = vim.notify
+  local original_executable = vim.fn.executable
+  local original_has = vim.fn.has
+  local spawn_calls = {}
+  local xsel_stdin
+
+  vim.notify = function() end
+  vim.fn.has = function(feature)
+    if feature == "mac" or feature == "wsl" then
+      return 0
+    end
+    return original_has(feature)
+  end
+  vim.fn.executable = function(bin)
+    if bin == "freeze" or bin == "xsel" then
+      return 1
+    end
+    if bin == "xclip" or bin == "wl-copy" then
+      return 0
+    end
+    return original_executable(bin)
+  end
+  vim.uv = {
+    new_pipe = function()
+      local pipe = stub_pipe()
+      pipe.writes = {}
+      pipe.closed = 0
+      pipe.write = function(_, data, cb)
+        table.insert(pipe.writes, data)
+        if cb then
+          cb()
+        end
+      end
+      pipe.close = function()
+        pipe.closed = pipe.closed + 1
+      end
+      return pipe
+    end,
+    spawn = function(cmd, opts, cb)
+      table.insert(spawn_calls, { cmd = cmd, opts = opts })
+      if cmd == "xsel" then
+        xsel_stdin = opts.stdio[1]
+      end
+      cb(0, 0)
+      return {
+        close = function() end,
+      }
+    end,
+    read_start = function(_, cb)
+      cb(nil, nil)
+    end,
+  }
+
+  local freeze = reset_module()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, tmp .. "/source.lua")
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "print('hi')" })
+  vim.bo[buf].modified = false
+  vim.bo[buf].filetype = "lua"
+
+  freeze.setup({ output = tmp, filename = "shot.png", clipboard = true })
+  freeze.freeze(1, 1)
+  vim.wait(50)
+
+  assert_eq(#spawn_calls, 2, "freeze then clipboard should spawn")
+  assert_eq(spawn_calls[2].cmd, "xsel", "clipboard should fall back to xsel")
+  assert_truthy(
+    vim.tbl_contains(spawn_calls[2].opts.args, "--mime-type"),
+    "xsel should receive an image MIME type"
+  )
+  assert_truthy(xsel_stdin, "xsel should receive stdin")
+  assert_eq(xsel_stdin.writes[1], "fake png bytes\n", "xsel should receive image bytes")
+  assert_eq(xsel_stdin.closed, 1, "xsel stdin pipe should close once")
+
+  vim.uv = original_uv
+  vim.notify = original_notify
+  vim.fn.executable = original_executable
+  vim.fn.has = original_has
+end)
+
 test("freeze reports stderr even when exit fires before pipe drain", function()
   local tmp = vim.fn.tempname()
   vim.fn.mkdir(tmp, "p")
