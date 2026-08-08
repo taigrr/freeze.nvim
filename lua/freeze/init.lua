@@ -119,10 +119,12 @@ local function copy_to_clipboard(filepath)
     cmd = { "wl-copy", "--type", "image/png" }
   elseif vim.fn.executable("xclip") == 1 then
     cmd = { "xclip", "-selection", "clipboard", "-target", "image/png", "-i", filepath }
-  elseif vim.fn.executable("xsel") == 1 then
-    cmd = { "xsel", "--clipboard", "--input", "--mime-type", "image/png" }
   elseif vim.fn.executable("wl-copy") == 1 then
     cmd = { "wl-copy", "--type", "image/png" }
+  elseif vim.fn.executable("xsel") == 1 then
+    -- xsel has no MIME-type/target concept, so the image is copied as an
+    -- untyped selection; some paste targets may treat it as raw bytes.
+    cmd = { "xsel", "--clipboard", "--input" }
   else
     vim.notify(
       "No clipboard tool found (xclip, xsel, or wl-copy)",

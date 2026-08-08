@@ -451,8 +451,13 @@ test("clipboard falls back to xsel when xclip and wl-copy are unavailable", func
   assert_eq(#spawn_calls, 2, "freeze then clipboard should spawn")
   assert_eq(spawn_calls[2].cmd, "xsel", "clipboard should fall back to xsel")
   assert_truthy(
-    vim.tbl_contains(spawn_calls[2].opts.args, "--mime-type"),
-    "xsel should receive an image MIME type"
+    vim.tbl_contains(spawn_calls[2].opts.args, "--clipboard")
+      and vim.tbl_contains(spawn_calls[2].opts.args, "--input"),
+    "xsel should be invoked with --clipboard --input"
+  )
+  assert_truthy(
+    not vim.tbl_contains(spawn_calls[2].opts.args, "--mime-type"),
+    "xsel does not support --mime-type"
   )
   assert_truthy(xsel_stdin, "xsel should receive stdin")
   assert_eq(xsel_stdin.writes[1], "fake png bytes\n", "xsel should receive image bytes")
