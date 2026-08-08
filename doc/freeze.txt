@@ -87,8 +87,9 @@ theme ~
                                                      *freeze-config-clipboard*
 clipboard ~
     When true, copy the generated image to the system clipboard after
-    freezing. Supports xclip and wl-copy (Wayland) on Linux, osascript
-    on macOS, and PowerShell on WSL.
+    freezing. Supports xclip, wl-copy (Wayland), and xsel (fallback,
+    no image MIME type) on Linux, osascript on macOS, and PowerShell
+    on WSL.
     Type: `boolean`, Default: `false`
 
                                                     *freeze-config-extra_args*
