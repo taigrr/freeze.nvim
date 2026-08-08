@@ -82,7 +82,7 @@ require("freeze").setup({
   theme = nil,
 
   -- Copy image to system clipboard after freeze (default: false)
-  -- Supports: xclip, wl-copy (Wayland), macOS, WSL
+  -- Supports: xclip, wl-copy (Wayland), xsel (fallback), macOS, WSL
   clipboard = false,
 
   -- Additional arguments passed to freeze CLI
