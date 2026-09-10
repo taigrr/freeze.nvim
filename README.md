@@ -9,7 +9,7 @@
   <a href="https://github.com/taigrr/freeze.nvim/pulse">
     <img alt="Last commit" src="https://img.shields.io/github/last-commit/taigrr/freeze.nvim?style=for-the-badge&logo=starship&color=8bd5ca&logoColor=D9E0EE&labelColor=302D41">
   </a>
-  <a href="https://github.com/taigrr/freeze.nvim/blob/master/LICENSE">
+  <a href="https://github.com/taigrr/freeze.nvim/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/taigrr/freeze.nvim?style=for-the-badge&logo=starship&color=ee999f&logoColor=D9E0EE&labelColor=302D41">
   </a>
   <a href="https://github.com/taigrr/freeze.nvim/stargazers">
