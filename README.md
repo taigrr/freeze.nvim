@@ -75,7 +75,7 @@ require("freeze").setup({
   -- Missing directories are created automatically
   output = nil,
 
-  -- Output filename (default: "freeze.png")
+  -- Output filename (default: "freeze.png"; must be a plain filename)
   filename = "freeze.png",
 
   -- Freeze theme (default: nil, uses freeze default)

@@ -234,6 +234,59 @@ test("repeated setup refreshes command behavior and config", function()
   vim.notify = original_notify
 end)
 
+test("setup falls back to default filename when configured filename is invalid", function()
+  local tmp = vim.fn.tempname()
+  local default_file = tmp .. "/freeze.png"
+  local original_uv = vim.uv
+  local original_notify = vim.notify
+  local notifications = {}
+  local spawn_calls = {}
+
+  vim.notify = function(msg, level, opts)
+    table.insert(notifications, { msg = msg, level = level, opts = opts })
+  end
+  vim.uv = {
+    new_pipe = function()
+      return stub_pipe()
+    end,
+    spawn = function(cmd, opts, cb)
+      table.insert(spawn_calls, { cmd = cmd, opts = opts })
+      cb(0, 0)
+      return {}
+    end,
+    read_start = function(_, cb)
+      cb(nil, nil)
+    end,
+  }
+
+  local freeze = reset_module()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, tmp .. "/source.lua")
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "print('hi')" })
+  vim.bo[buf].modified = false
+  vim.bo[buf].filetype = "lua"
+
+  freeze.setup({ output = tmp, filename = "nested/shot.png" })
+  freeze.freeze(1, 1)
+  vim.wait(50)
+
+  assert_eq(#spawn_calls, 1, "freeze should still spawn with fallback filename")
+  assert_truthy(
+    vim.tbl_contains(spawn_calls[1].opts.args, default_file),
+    "output path should use fallback filename"
+  )
+  assert_eq(#notifications, 2, "should warn, then notify on success")
+  assert_truthy(
+    notifications[1].msg:find("Invalid filename", 1, true),
+    "first notification should describe the invalid filename"
+  )
+  assert_eq(notifications[1].level, vim.log.levels.WARN, "invalid filename should warn")
+
+  vim.uv = original_uv
+  vim.notify = original_notify
+end)
+
 test("clipboard closes wl-copy stdin pipe when spawn fails", function()
   local tmp = vim.fn.tempname()
   vim.fn.mkdir(tmp, "p")
