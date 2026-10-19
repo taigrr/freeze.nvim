@@ -131,6 +131,13 @@ test("freeze aborts when output directory creation fails", function()
   vim.notify = function(msg, level, opts)
     table.insert(notifications, { msg = msg, level = level, opts = opts })
   end
+  local original_executable = vim.fn.executable
+  vim.fn.executable = function(bin)
+    if bin == "freeze" then
+      return 1
+    end
+    return original_executable(bin)
+  end
   vim.uv = {
     new_pipe = function()
       return stub_pipe()
@@ -167,6 +174,65 @@ test("freeze aborts when output directory creation fails", function()
 
   vim.uv = original_uv
   vim.notify = original_notify
+  vim.fn.executable = original_executable
+end)
+
+test("freeze aborts before creating output directory when binary is missing", function()
+  local tmp = vim.fn.tempname()
+  local target_dir = tmp .. "/missing/freeze"
+
+  local original_uv = vim.uv
+  local original_notify = vim.notify
+  local original_executable = vim.fn.executable
+  local notifications = {}
+  local spawn_calls = {}
+
+  vim.notify = function(msg, level, opts)
+    table.insert(notifications, { msg = msg, level = level, opts = opts })
+  end
+  vim.fn.executable = function(bin)
+    if bin == "freeze" then
+      return 0
+    end
+    return original_executable(bin)
+  end
+  vim.uv = {
+    new_pipe = function()
+      return stub_pipe()
+    end,
+    spawn = function(cmd, opts, cb)
+      table.insert(spawn_calls, { cmd = cmd, opts = opts })
+      cb(0, 0)
+      return {}
+    end,
+    read_start = function(_, cb)
+      cb(nil, nil)
+    end,
+  }
+
+  local freeze = reset_module()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, tmp .. "/source.lua")
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "print('hi')" })
+  vim.bo[buf].modified = false
+  vim.bo[buf].filetype = "lua"
+
+  freeze.setup({ output = target_dir, filename = "shot.png" })
+  freeze.freeze(1, 1)
+  vim.wait(20)
+
+  assert_eq(vim.fn.isdirectory(target_dir), 0, "output directory should not be created")
+  assert_eq(#spawn_calls, 0, "freeze should not spawn when executable is missing")
+  assert_eq(#notifications, 1, "should notify about missing executable")
+  assert_truthy(
+    notifications[1].msg:find("freeze executable not found", 1, true),
+    "error should mention missing executable"
+  )
+
+  vim.uv = original_uv
+  vim.notify = original_notify
+  vim.fn.executable = original_executable
 end)
 
 test("setup can be called multiple times", function()
@@ -186,11 +252,18 @@ test("repeated setup refreshes command behavior and config", function()
   local second_file = second_dir .. "/second.png"
   local original_uv = vim.uv
   local original_notify = vim.notify
+  local original_executable = vim.fn.executable
   local notifications = {}
   local spawn_calls = {}
 
   vim.notify = function(msg, level, opts)
     table.insert(notifications, { msg = msg, level = level, opts = opts })
+  end
+  vim.fn.executable = function(bin)
+    if bin == "freeze" then
+      return 1
+    end
+    return original_executable(bin)
   end
   vim.uv = {
     new_pipe = function()
@@ -232,6 +305,7 @@ test("repeated setup refreshes command behavior and config", function()
 
   vim.uv = original_uv
   vim.notify = original_notify
+  vim.fn.executable = original_executable
 end)
 
 test("setup falls back to default filename when configured filename is invalid", function()
@@ -370,11 +444,18 @@ test("clipboard uses osascript PNG coercion on macOS", function()
 
   local original_uv = vim.uv
   local original_notify = vim.notify
+  local original_executable = vim.fn.executable
   local original_has = vim.fn.has
   local spawn_calls = {}
   local closed_handles = 0
 
   vim.notify = function() end
+  vim.fn.executable = function(bin)
+    if bin == "freeze" then
+      return 1
+    end
+    return original_executable(bin)
+  end
   vim.fn.has = function(feature)
     if feature == "mac" then
       return 1
@@ -426,6 +507,7 @@ test("clipboard uses osascript PNG coercion on macOS", function()
 
   vim.uv = original_uv
   vim.notify = original_notify
+  vim.fn.executable = original_executable
   vim.fn.has = original_has
 end)
 

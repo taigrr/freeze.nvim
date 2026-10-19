@@ -240,6 +240,15 @@ function M.freeze(start_line, end_line)
 
   local language = vim.api.nvim_get_option_value("filetype", { buf = 0 })
   local out_path = get_output_path()
+  if vim.fn.executable("freeze") ~= 1 then
+    vim.notify(
+      "freeze executable not found; run :checkhealth freeze for install help",
+      vim.log.levels.ERROR,
+      { title = "Freeze" }
+    )
+    return
+  end
+
   if not ensure_output_dir(out_path) then
     return
   end
@@ -319,11 +328,7 @@ function M.freeze(start_line, end_line)
   )
 
   if not handle then
-    vim.notify(
-      "Failed to spawn freeze — is it installed?",
-      vim.log.levels.ERROR,
-      { title = "Freeze" }
-    )
+    vim.notify("Failed to spawn freeze", vim.log.levels.ERROR, { title = "Freeze" })
     close_handle(stdout_pipe)
     close_handle(stderr_pipe)
     return
