@@ -25,6 +25,33 @@ local defaults = {
 ---@type FreezeConfig
 local config = vim.deepcopy(defaults)
 
+--- Return true when a configured filename is a plain leaf name
+---@param filename any
+---@return boolean
+local function is_valid_filename(filename)
+  return type(filename) == "string"
+    and filename ~= ""
+    and filename ~= "."
+    and filename ~= ".."
+    and not filename:find("[/\\]")
+end
+
+--- Normalize user config after merging with defaults
+---@param opts FreezeConfig
+---@return FreezeConfig
+local function normalize_config(opts)
+  if not is_valid_filename(opts.filename) then
+    vim.notify(
+      "Invalid filename; using " .. defaults.filename,
+      vim.log.levels.WARN,
+      { title = "Freeze" }
+    )
+    opts.filename = defaults.filename
+  end
+
+  return opts
+end
+
 --- Close a libuv handle when the current runtime supports it
 ---@param handle any
 local function close_handle(handle)
@@ -327,7 +354,7 @@ end
 --- Setup freeze.nvim
 ---@param opts FreezeConfig|nil Optional configuration
 function M.setup(opts)
-  config = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+  config = normalize_config(vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {}))
 
   pcall(vim.api.nvim_del_user_command, "Freeze")
   vim.api.nvim_create_user_command("Freeze", function(cmd_opts)

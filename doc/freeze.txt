@@ -76,7 +76,8 @@ output ~
 
                                                       *freeze-config-filename*
 filename ~
-    Name of the output file.
+    Name of the output file. Must be a plain filename, not a path. Invalid
+    values fall back to "freeze.png" with a warning.
     Type: `string`, Default: `"freeze.png"`
 
                                                          *freeze-config-theme*
