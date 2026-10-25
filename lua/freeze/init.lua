@@ -256,8 +256,14 @@ function M.freeze(start_line, end_line)
   local stdout_pipe = uv.new_pipe(false)
   local stderr_pipe = uv.new_pipe(false)
   local collected = { stdout = "", stderr = "" }
-  local state =
-    { exited = false, code = nil, stdout_done = false, stderr_done = false, done = false }
+  local state = {
+    exited = false,
+    code = nil,
+    signal = 0,
+    stdout_done = false,
+    stderr_done = false,
+    done = false,
+  }
 
   local args = {
     "--lines",
@@ -299,7 +305,7 @@ function M.freeze(start_line, end_line)
     close_handle(stdout_pipe)
     close_handle(stderr_pipe)
 
-    if state.code == 0 and not state.read_error then
+    if state.code == 0 and state.signal == 0 and not state.read_error then
       vim.notify("Frozen: " .. out_path .. " 🍦", vim.log.levels.INFO, { title = "Freeze" })
       if config.clipboard then
         copy_to_clipboard(out_path)
@@ -307,7 +313,11 @@ function M.freeze(start_line, end_line)
     else
       local msg = collected.stderr ~= "" and collected.stderr or collected.stdout
       vim.notify(
-        "freeze failed (exit " .. state.code .. "): " .. msg,
+        "freeze failed (exit "
+          .. state.code
+          .. (state.signal ~= 0 and ", signal " .. state.signal or "")
+          .. "): "
+          .. msg,
         vim.log.levels.ERROR,
         { title = "Freeze" }
       )
@@ -320,9 +330,10 @@ function M.freeze(start_line, end_line)
       args = args,
       stdio = { nil, stdout_pipe, stderr_pipe },
     },
-    vim.schedule_wrap(function(code, _)
+    vim.schedule_wrap(function(code, signal)
       state.exited = true
       state.code = code
+      state.signal = signal
       finalize()
     end)
   )
