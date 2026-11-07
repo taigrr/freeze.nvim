@@ -313,11 +313,18 @@ test("setup falls back to default filename when configured filename is invalid",
   local default_file = tmp .. "/freeze.png"
   local original_uv = vim.uv
   local original_notify = vim.notify
+  local original_executable = vim.fn.executable
   local notifications = {}
   local spawn_calls = {}
 
   vim.notify = function(msg, level, opts)
     table.insert(notifications, { msg = msg, level = level, opts = opts })
+  end
+  vim.fn.executable = function(bin)
+    if bin == "freeze" then
+      return 1
+    end
+    return original_executable(bin)
   end
   vim.uv = {
     new_pipe = function()
@@ -359,6 +366,7 @@ test("setup falls back to default filename when configured filename is invalid",
 
   vim.uv = original_uv
   vim.notify = original_notify
+  vim.fn.executable = original_executable
 end)
 
 test("clipboard closes wl-copy stdin pipe when spawn fails", function()
