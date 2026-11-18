@@ -180,10 +180,10 @@ local function copy_to_clipboard(filepath)
     handle = uv.spawn(cmd[1], {
       args = vim.list_slice(cmd, 2),
       stdio = { stdin, nil, nil },
-    }, function(code)
+    }, function(code, signal)
       vim.schedule(function()
         close_handle(handle)
-        if code == 0 then
+        if code == 0 and signal == 0 then
           vim.notify("Copied to clipboard", vim.log.levels.INFO, { title = "Freeze" })
         else
           vim.notify("Failed to copy to clipboard", vim.log.levels.WARN, { title = "Freeze" })
@@ -209,10 +209,10 @@ local function copy_to_clipboard(filepath)
   handle = uv.spawn(cmd[1], {
     args = vim.list_slice(cmd, 2),
     stdio = { nil, nil, nil },
-  }, function(code)
+  }, function(code, signal)
     vim.schedule(function()
       close_handle(handle)
-      if code == 0 then
+      if code == 0 and signal == 0 then
         vim.notify("Copied to clipboard", vim.log.levels.INFO, { title = "Freeze" })
       else
         vim.notify("Failed to copy to clipboard", vim.log.levels.WARN, { title = "Freeze" })
